@@ -14,6 +14,20 @@ class InsufficientFundsError(ConflictError):
         super().__init__(detail)
 
 
+def _coerce_quantity(quantity: float) -> int:
+    if quantity <= 0:
+        raise BadRequestError('quantity must be greater than 0')
+
+    quantity_value = float(quantity)
+    if not quantity_value.is_integer():
+        raise BadRequestError('quantity must be a whole number greater than 0')
+
+    quantity_int = int(quantity_value)
+    if quantity_int <= 0:
+        raise BadRequestError('quantity must be a whole number greater than 0')
+    return quantity_int
+
+
 def _ensure_security_anchor(ticker: str) -> Security:
     quote = get_quote(ticker)
     if not quote:
@@ -32,18 +46,13 @@ def _ensure_security_anchor(ticker: str) -> Security:
 
 
 def execute_purchase_order(portfolio_id: int, ticker: str, quantity: float) -> None:
-    if quantity <= 0:
-        raise BadRequestError('quantity must be greater than 0')
-
     portfolio = require_portfolio(portfolio_id)
     user = portfolio.user
     if not user:
         raise NotFoundError('Portfolio owner not found')
 
     security = _ensure_security_anchor(ticker)
-    quantity_int = int(quantity)
-    if quantity_int <= 0:
-        raise BadRequestError('quantity must be a whole number greater than 0')
+    quantity_int = _coerce_quantity(quantity)
 
     total_cost = security.price * quantity_int
     if user.balance < total_cost:
@@ -71,15 +80,13 @@ def execute_purchase_order(portfolio_id: int, ticker: str, quantity: float) -> N
 
 
 def liquidate_investment(portfolio_id: int, ticker: str, quantity: float) -> None:
-    if quantity <= 0:
-        raise BadRequestError('quantity must be greater than 0')
-
     portfolio = require_portfolio(portfolio_id)
     user = portfolio.user
+    if not user:
+        raise NotFoundError('Portfolio owner not found')
+
     security = _ensure_security_anchor(ticker)
-    quantity_int = int(quantity)
-    if quantity_int <= 0:
-        raise BadRequestError('quantity must be a whole number greater than 0')
+    quantity_int = _coerce_quantity(quantity)
 
     investment = next((inv for inv in portfolio.investments if inv.ticker == security.ticker), None)
     if not investment:

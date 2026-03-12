@@ -60,6 +60,28 @@ def _extract_token_from_request() -> str:
     return token
 
 
+def _validate_cognito_client_claims(claims: dict[str, Any], app_client_id: str) -> None:
+    token_use = claims.get('token_use')
+    audience = claims.get('aud')
+    client_id = claims.get('client_id')
+
+    if token_use == 'access':
+        if client_id != app_client_id:
+            raise AuthenticationError('Invalid token claims')
+        return
+
+    if token_use == 'id':
+        if audience == app_client_id or (isinstance(audience, list) and app_client_id in audience):
+            return
+        raise AuthenticationError('Invalid token claims')
+
+    if audience == app_client_id or (isinstance(audience, list) and app_client_id in audience):
+        return
+    if client_id == app_client_id:
+        return
+    raise AuthenticationError('Invalid token claims')
+
+
 def _get_public_key(token: str):
     try:
         unverified_header = jwt.get_unverified_header(token)
@@ -88,9 +110,8 @@ def validate_token(token: str) -> dict[str, Any]:
             token,
             public_key,
             algorithms=['RS256'],
-            audience=app_client_id,
             issuer=issuer,
-            options={'require': ['exp', 'iss', 'aud']},
+            options={'require': ['exp', 'iss'], 'verify_aud': False},
         )
     except InvalidTokenError as exc:
         raise AuthenticationError('Invalid or expired token') from exc
@@ -98,6 +119,8 @@ def validate_token(token: str) -> dict[str, Any]:
     exp = claims.get('exp')
     if exp is None or int(exp) < int(time.time()):
         raise AuthenticationError('Token expired')
+
+    _validate_cognito_client_claims(claims, app_client_id)
 
     return claims
 

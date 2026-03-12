@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.errors import ConflictError, NotFoundError
+from app.errors import BadRequestError, ConflictError, NotFoundError
 from app.models import Transaction
-from app.services.alpha_vantage_client import SecurityQuote
 from app.services import trade_service
+from app.services.alpha_vantage_client import SecurityQuote
 
 
 def _mock_quote(ticker: str, price: float = 100.0) -> SecurityQuote:
@@ -58,6 +58,13 @@ def test_buy_invalid_ticker_raises_not_found(seeded_data, monkeypatch):
 
     with pytest.raises(NotFoundError):
         trade_service.execute_purchase_order(seeded_data['portfolio'].id, 'INVALID', 1)
+
+
+def test_buy_fractional_quantity_raises_bad_request(seeded_data, monkeypatch):
+    monkeypatch.setattr(trade_service, 'get_quote', lambda ticker: _mock_quote(ticker, price=100.0))
+
+    with pytest.raises(BadRequestError):
+        trade_service.execute_purchase_order(seeded_data['portfolio'].id, 'AAPL', 1.5)
 
 
 def test_sell_insufficient_holdings_raises_conflict(db_session, seeded_data, monkeypatch):

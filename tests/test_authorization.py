@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.alpha_vantage_client import SecurityQuote
 from app.services import trade_service
+from app.services.alpha_vantage_client import SecurityQuote
 
 
 def _stub_quote(ticker: str) -> SecurityQuote:
@@ -70,3 +70,38 @@ def test_user_with_no_access_gets_403(client, seeded_data, make_auth_header):
     portfolio_id = seeded_data['portfolio'].id
     response = client.get(f'/portfolios/{portfolio_id}', headers=make_auth_header(username='outsider'))
     assert response.status_code == 403
+
+
+def test_grant_access_requires_existing_user(client, seeded_data, make_auth_header):
+    portfolio_id = seeded_data['portfolio'].id
+
+    response = client.post(
+        f'/portfolios/{portfolio_id}/access',
+        headers=make_auth_header(username='owner'),
+        json={'user_id': 'missing-user', 'role': 'viewer'},
+    )
+
+    assert response.status_code == 404
+
+
+def test_grant_access_rejects_owner_grant(client, seeded_data, make_auth_header):
+    portfolio_id = seeded_data['portfolio'].id
+
+    response = client.post(
+        f'/portfolios/{portfolio_id}/access',
+        headers=make_auth_header(username='owner'),
+        json={'user_id': 'owner', 'role': 'manager'},
+    )
+
+    assert response.status_code == 409
+
+
+def test_revoke_missing_access_grant_returns_404(client, seeded_data, make_auth_header):
+    portfolio_id = seeded_data['portfolio'].id
+
+    response = client.delete(
+        f'/portfolios/{portfolio_id}/access/missing-user',
+        headers=make_auth_header(username='owner'),
+    )
+
+    assert response.status_code == 404

@@ -9,10 +9,9 @@ from app.services import portfolio_access_service
 
 def _principals() -> set[str]:
     principals: set[str] = set()
-    for key in ('current_username', 'current_user_id'):
-        value = getattr(g, key, None)
-        if value:
-            principals.add(str(value))
+    value = getattr(g, 'current_username', None)
+    if value:
+        principals.add(str(value))
     return principals
 
 

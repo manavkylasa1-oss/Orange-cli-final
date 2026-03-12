@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from app.auth import require_auth
 from app.db import db
+from app.errors import NotFoundError
 from app.schemas import CreateUserRequest, UpdateBalanceRequest
 from app.services import transaction_service, user_service
 
@@ -22,7 +23,7 @@ def get_users():
 def get_user(username):
     user = user_service.get_user_by_username(username)
     if user is None:
-        return jsonify({'error': 'not_found', 'detail': f'User {username} not found'}), 404
+        raise NotFoundError(f'User {username} not found')
     return jsonify(user.__to_dict__()), 200
 
 

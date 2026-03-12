@@ -1,0 +1,13 @@
+{
+  "source_directories": [
+    "."
+  ],
+  "search_path": [
+    "."
+  ],
+  "exclude": [
+    ".venv",
+    "__pycache__",
+    "htmlcov"
+  ]
+}

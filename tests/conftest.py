@@ -85,15 +85,6 @@ def rsa_keypair():
 
 
 @pytest.fixture(autouse=True)
-def patch_jwks(app, monkeypatch, rsa_keypair):
-    from app.auth import auth as auth_module
-
-    with app.app_context():
-        monkeypatch.setattr(auth_module, '_get_jwks', lambda: {'keys': [rsa_keypair['jwk']]})
-        yield
-
-
-@pytest.fixture(autouse=True)
 def clear_cache(app):
     from app.cache import cache
 
@@ -103,12 +94,35 @@ def clear_cache(app):
         cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def seed_jwks_cache(app, clear_cache, rsa_keypair):
+    from app.auth import auth as auth_module
+    from app.cache import cache
+
+    with app.app_context():
+        cache.set(auth_module.JWKS_CACHE_KEY, {'keys': [rsa_keypair['jwk']]}, timeout=auth_module.JWKS_CACHE_TTL_SECONDS)
+        yield
+
+
 @pytest.fixture()
 def make_auth_header(app, rsa_keypair):
-    def _make(username='owner', sub='owner-sub', exp_delta_seconds=3600, kid='test-kid', key=None):
+    def _make(
+        username='owner',
+        sub='owner-sub',
+        exp_delta_seconds=3600,
+        kid='test-kid',
+        key=None,
+        audience=None,
+        client_id=None,
+        token_use='id',
+        issuer=None,
+    ):
         issuer = (
-            f"https://cognito-idp.{app.config['COGNITO_REGION']}.amazonaws.com/"
-            f"{app.config['COGNITO_USER_POOL_ID']}"
+            issuer
+            or (
+                f"https://cognito-idp.{app.config['COGNITO_REGION']}.amazonaws.com/"
+                f"{app.config['COGNITO_USER_POOL_ID']}"
+            )
         )
         now = datetime.now(UTC)
         claims = {
@@ -116,10 +130,20 @@ def make_auth_header(app, rsa_keypair):
             'cognito:username': username,
             'username': username,
             'iss': issuer,
-            'aud': app.config['COGNITO_APP_CLIENT_ID'],
             'iat': int(now.timestamp()),
             'exp': int((now + timedelta(seconds=exp_delta_seconds)).timestamp()),
+            'token_use': token_use,
         }
+        if audience is not None:
+            claims['aud'] = audience
+        elif token_use != 'access':
+            claims['aud'] = app.config['COGNITO_APP_CLIENT_ID']
+
+        if client_id is not None:
+            claims['client_id'] = client_id
+        elif token_use == 'access':
+            claims['client_id'] = app.config['COGNITO_APP_CLIENT_ID']
+
         token = jwt.encode(
             claims,
             key or rsa_keypair['private_key'],

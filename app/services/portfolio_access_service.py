@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.db import db
-from app.errors import BadRequestError
+from app.errors import BadRequestError, ConflictError, NotFoundError
 from app.models import PortfolioAccess
 
 ROLE_VIEWER = 'viewer'
@@ -13,6 +13,17 @@ def grant_access(portfolio_id: int, user_id: str, role: str) -> PortfolioAccess:
     role = role.lower().strip()
     if role not in VALID_ROLES:
         raise BadRequestError(f'Invalid role: {role}')
+
+    from app.services.portfolio_service import get_portfolio_by_id
+    from app.services.user_service import get_user_by_username
+
+    portfolio = get_portfolio_by_id(portfolio_id)
+    if portfolio is None:
+        raise NotFoundError(f'Portfolio {portfolio_id} not found')
+    if get_user_by_username(user_id) is None:
+        raise NotFoundError(f'User {user_id} not found')
+    if portfolio.owner == user_id:
+        raise ConflictError('Portfolio owner already has full access')
 
     existing = db.session.query(PortfolioAccess).filter_by(portfolio_id=portfolio_id, user_id=user_id).one_or_none()
     if existing:
