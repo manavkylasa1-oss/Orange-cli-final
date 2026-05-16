@@ -89,5 +89,6 @@ __marimo__/
 .DS_Store
 notes/
 app.*
+!frontend/src/App.jsx
 local/
 .ruff*
