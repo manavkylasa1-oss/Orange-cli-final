@@ -88,7 +88,7 @@ Do not commit either `.env` file.
 - The backend database must include a user record whose username matches the Cognito username used for testing.
 
 ## Local Database Bootstrap
-The tracked helper script [scripts/bootstrap_local_db.py](/Users/mk/Desktop/Orange_cli_final/scripts/bootstrap_local_db.py) creates tables and seeds a local backend user if missing.
+The tracked helper script `scripts/bootstrap_local_db.py` creates tables and seeds a local backend user if missing.
 
 Supported environment variables:
 - `SEED_USERNAME` default: `test`
