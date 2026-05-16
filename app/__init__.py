@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from pydantic import ValidationError
 
 from app.cache import cache
@@ -21,9 +21,24 @@ def create_app(config):
     app.register_blueprint(security_bp, url_prefix='/securities')
     app.register_blueprint(trade_bp, url_prefix='/trades')
 
+    @app.after_request
+    def add_cors_headers(response):
+        origin = request.headers.get('Origin')
+        allowed_origin = app.config.get('FRONTEND_ORIGIN', 'http://localhost:5173')
+        if origin == allowed_origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Vary'] = 'Origin'
+            response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, DELETE, OPTIONS'
+        return response
+
     @app.route('/health', methods=['GET'])
     def health():
         return jsonify({'status': 'ok'}), 200
+
+    @app.route('/health', methods=['OPTIONS'])
+    def health_options():
+        return ('', 204)
 
     @app.errorhandler(ValidationError)
     def handle_validation_error(error: ValidationError):
